@@ -111,7 +111,7 @@
             </div>
 
             <!-- Stats Grid -->
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
                 <div class="bg-stone-900/70 backdrop-blur border border-stone-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
                     <div class="flex items-center justify-between">
                         <span class="text-xs uppercase tracking-wider text-stone-400 font-semibold">Whiskysorter</span>
@@ -163,6 +163,19 @@
                         <span class="text-xs text-stone-400 ml-1">/ 10</span>
                     </div>
                     <p class="text-xs text-stone-400 mt-1">Sällskapets genomsnitt</p>
+                </div>
+
+                <div class="bg-stone-900/70 backdrop-blur border border-stone-800 rounded-2xl p-5 shadow-lg relative overflow-hidden col-span-2 lg:col-span-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs uppercase tracking-wider text-stone-400 font-semibold">Vanligaste destilleri</span>
+                        <div class="p-2 rounded-xl bg-amber-950/60 text-amber-500 border border-amber-900/30">
+                            <i data-lucide="factory" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-baseline">
+                        <span id="stat-top-distillery" class="text-xl font-bold font-serif text-amber-100 truncate">–</span>
+                    </div>
+                    <p id="stat-top-distillery-count" class="text-xs text-stone-400 mt-1">Inga flaskor inlagda</p>
                 </div>
             </div>
 
@@ -509,17 +522,15 @@
         let reviews = [];
         let tastingVotes = [];
 
-        // Ny standardbild: Ett ekfat i en källarmiljö
+        // Standardbild: Ett ekfat i en källarmiljö
         const defaultBottleImage = 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=600&q=80';
         
-        // Tidigare standardbilder som ska bytas ut automatiskt mot fatet
         const oldDefaultImages = [
             'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=600&q=80',
             'https://images.unsplash.com/photo-1563227812-0ea4c22e6cc8?auto=format&fit=crop&w=600&q=80',
             'https://images.unsplash.com/photo-1527281400683-1aae777175f8?auto=format&fit=crop&w=600&q=80'
         ];
 
-        // Hjälpfunktion för att formatera ålder snyggt (undviker "NAS år")
         function formatAge(age) {
             if (!age || age.toString().trim() === '') return 'Ej angiven';
             const clean = age.toString().trim();
@@ -527,7 +538,6 @@
             return `${clean} år`;
         }
 
-        // Hjälpfunktion som automatiskt ersätter gamla standardbilder med fat-bilden
         function getBottleImage(url) {
             if (!url || url.trim() === '' || oldDefaultImages.includes(url)) {
                 return defaultBottleImage;
@@ -535,7 +545,6 @@
             return url;
         }
 
-        // Global UI functions defined inside module and attached to window
         window.openModal = function() {
             document.getElementById('w-id').value = '';
             document.getElementById('whisky-modal-title').textContent = 'Registrera ny whisky';
@@ -684,7 +693,6 @@
                                     </button>
                                 </div>
                             </div>
-                            <!-- Rasmus anteckningar -->
                             <div class="mt-2 pt-2 border-t border-stone-800/60">
                                 <input type="text" placeholder="✍️ Rasmus roman / anteckningar..." class="vote-notes w-full bg-stone-900 border border-stone-800 rounded-lg px-3 py-1.5 text-xs text-stone-200 placeholder-stone-500 focus:outline-none focus:border-amber-600">
                             </div>
@@ -868,7 +876,7 @@
                 }
             }
 
-            const distillery = document.getElementById('w-distillery').value || 'Okänt destilleri';
+            const distillery = document.getElementById('w-distillery').value.trim() || 'Okänt destilleri';
             const type = document.getElementById('w-type').value;
             const age = document.getElementById('w-age').value.trim() || 'NAS';
             const imageUrl = document.getElementById('w-image').value.trim() || defaultBottleImage;
@@ -910,7 +918,7 @@
                         continue;
                     }
 
-                    const distillery = item.distillery || 'Okänt destilleri';
+                    const distillery = item.distillery ? item.distillery.trim() : 'Okänt destilleri';
                     const type = item.type || 'Single Malt';
                     const age = item.age !== undefined && item.age !== null ? String(item.age) : 'NAS';
                     const imageUrl = item.imageUrl ? getBottleImage(item.imageUrl) : defaultBottleImage;
@@ -1064,6 +1072,28 @@
                 document.getElementById('stat-avg-score').textContent = (totalScore / reviews.length).toFixed(1);
             } else {
                 document.getElementById('stat-avg-score').textContent = '0.0';
+            }
+
+            // Beräkna vanligaste destilleriet
+            if (whiskies.length > 0) {
+                const counts = {};
+                whiskies.forEach(w => {
+                    const dist = w.distillery ? w.distillery.trim() : 'Okänt';
+                    counts[dist] = (counts[dist] || 0) + 1;
+                });
+                let topDist = '–';
+                let maxCount = 0;
+                for (const [dist, count] of Object.entries(counts)) {
+                    if (count > maxCount) {
+                        maxCount = count;
+                        topDist = dist;
+                    }
+                }
+                document.getElementById('stat-top-distillery').textContent = topDist;
+                document.getElementById('stat-top-distillery-count').textContent = `${maxCount} st flaskor i arkivet`;
+            } else {
+                document.getElementById('stat-top-distillery').textContent = '–';
+                document.getElementById('stat-top-distillery-count').textContent = 'Inga flaskor inlagda';
             }
 
             const ranked = getRankedWhiskies().slice(0, 3);
