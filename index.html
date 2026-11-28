@@ -248,6 +248,10 @@
                         <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-500"></i>
                         <input type="text" id="whisky-search" oninput="filterWhiskies(this.value)" placeholder="Sök whisky eller destilleri..." class="w-full sm:w-64 bg-stone-900 border border-stone-800 rounded-xl pl-9 pr-4 py-2.5 sm:py-2 text-base sm:text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-600 transition">
                     </div>
+                    <button type="button" id="toggle-images-btn" onclick="toggleCatalogImages()" aria-pressed="true" class="bg-stone-800 hover:bg-stone-700 text-amber-200 border border-amber-700/50 font-medium px-4 py-2 rounded-xl text-sm transition flex items-center space-x-2 whitespace-nowrap shadow-lg">
+                        <i id="toggle-images-icon" data-lucide="image" class="w-4 h-4"></i>
+                        <span id="toggle-images-label">Bilder: På</span>
+                    </button>
                     <button onclick="openImportModal()" class="bg-stone-800 hover:bg-stone-700 text-amber-200 border border-amber-700/50 font-medium px-4 py-2 rounded-xl text-sm transition flex items-center space-x-2 whitespace-nowrap shadow-lg">
                         <i data-lucide="upload" class="w-4 h-4"></i>
                         <span>Importera lista</span>
@@ -532,6 +536,7 @@
         // Sällskapsspärr
         const SOCIETY_PASSCODE = "JRMRB";
         const SOCIETY_UNLOCK_KEY = "whiskeysallskapet_unlocked_v1";
+        const SHOW_CATALOG_IMAGES_KEY = "whiskeysallskapet_show_catalog_images_v1";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAcorqLZZbJ7cWfd76QfJ0Pa10y194llBY",
@@ -550,6 +555,7 @@
         let tastings = [];
         let reviews = [];
         let tastingVotes = [];
+        let showCatalogImages = localStorage.getItem(SHOW_CATALOG_IMAGES_KEY) !== "false";
 
         // Standardbild: Ett ekfat i en källarmiljö
         const defaultBottleImage = 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=600&q=80';
@@ -559,6 +565,32 @@
             'https://images.unsplash.com/photo-1563227812-0ea4c22e6cc8?auto=format&fit=crop&w=600&q=80',
             'https://images.unsplash.com/photo-1527281400683-1aae777175f8?auto=format&fit=crop&w=600&q=80'
         ];
+
+        function updateCatalogImageToggleUI() {
+            const btn = document.getElementById('toggle-images-btn');
+            const label = document.getElementById('toggle-images-label');
+            const icon = document.getElementById('toggle-images-icon');
+            if (!btn || !label) return;
+
+            btn.setAttribute('aria-pressed', showCatalogImages ? 'true' : 'false');
+            label.textContent = showCatalogImages ? 'Bilder: På' : 'Bilder: Av';
+            if (icon) {
+                icon.setAttribute('data-lucide', showCatalogImages ? 'image' : 'image-off');
+            }
+
+            if (showCatalogImages) {
+                btn.className = "bg-stone-800 hover:bg-stone-700 text-amber-200 border border-amber-700/50 font-medium px-4 py-2 rounded-xl text-sm transition flex items-center space-x-2 whitespace-nowrap shadow-lg";
+            } else {
+                btn.className = "bg-stone-900 hover:bg-stone-800 text-stone-400 border border-stone-700 font-medium px-4 py-2 rounded-xl text-sm transition flex items-center space-x-2 whitespace-nowrap shadow-lg";
+            }
+        }
+
+        window.toggleCatalogImages = function() {
+            showCatalogImages = !showCatalogImages;
+            localStorage.setItem(SHOW_CATALOG_IMAGES_KEY, showCatalogImages ? "true" : "false");
+            updateCatalogImageToggleUI();
+            renderWhiskies();
+        };
 
         function initSocietyLock() {
             const isUnlocked = sessionStorage.getItem(SOCIETY_UNLOCK_KEY) === "true";
@@ -1115,6 +1147,7 @@
         };
 
         function renderAll() {
+            updateCatalogImageToggleUI();
             renderOverview();
             renderWhiskies();
             renderTastings();
@@ -1215,31 +1248,56 @@
                 const isVisible = !currentQuery || searchData.includes(currentQuery);
                 const imageUrl = getBottleImage(w.imageUrl);
 
-                return `
-                    <div class="whisky-card ${isVisible ? 'flex' : 'hidden'} bg-stone-900/60 border border-stone-800 rounded-2xl overflow-hidden shadow-lg flex-col justify-between" data-search="${searchData}">
-                        <div>
-                            <div class="h-48 overflow-hidden relative bg-stone-950">
-                                <img src="${imageUrl}" alt="${w.name}" class="w-full h-full object-cover opacity-80 hover:scale-105 transition duration-500">
-                                <span class="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-stone-900/80 backdrop-blur text-amber-300 text-xs font-semibold border border-amber-800/50">${w.type}</span>
-                                <div class="absolute top-3 left-3 flex items-center space-x-1">
-                                    <button onclick="openEditWhiskyModal('${w.id}')" class="p-2 rounded-lg bg-stone-950/80 text-stone-400 hover:text-amber-300 backdrop-blur transition border border-stone-800" title="Redigera flaska">
-                                        <i data-lucide="edit-2" class="w-4 h-4"></i>
-                                    </button>
-                                    <button onclick="deleteWhisky('${w.id}')" class="p-2 rounded-lg bg-stone-950/80 text-stone-400 hover:text-red-400 backdrop-blur transition border border-stone-800" title="Radera flaska">
-                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="p-5 space-y-2">
-                                <div class="flex justify-between items-start">
-                                    <div>
-                                        <p class="text-xs text-amber-500 font-medium uppercase tracking-wider">${w.distillery}</p>
-                                        <h3 class="font-serif text-lg font-bold text-stone-100">${w.name}</h3>
-                                    </div>
-                                    <span class="text-xs bg-stone-800 text-stone-300 px-2.5 py-1 rounded-lg font-medium">${formatAge(w.age)}</span>
-                                </div>
+                const topSection = showCatalogImages ? `
+                    <div>
+                        <div class="h-48 overflow-hidden relative bg-stone-950">
+                            <img src="${imageUrl}" alt="${w.name}" class="w-full h-full object-cover opacity-80 hover:scale-105 transition duration-500">
+                            <span class="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-stone-900/80 backdrop-blur text-amber-300 text-xs font-semibold border border-amber-800/50">${w.type}</span>
+                            <div class="absolute top-3 left-3 flex items-center space-x-1">
+                                <button onclick="openEditWhiskyModal('${w.id}')" class="p-2 rounded-lg bg-stone-950/80 text-stone-400 hover:text-amber-300 backdrop-blur transition border border-stone-800" title="Redigera flaska">
+                                    <i data-lucide="edit-2" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="deleteWhisky('${w.id}')" class="p-2 rounded-lg bg-stone-950/80 text-stone-400 hover:text-red-400 backdrop-blur transition border border-stone-800" title="Radera flaska">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
                             </div>
                         </div>
+                        <div class="p-5 space-y-2">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-xs text-amber-500 font-medium uppercase tracking-wider">${w.distillery}</p>
+                                    <h3 class="font-serif text-lg font-bold text-stone-100">${w.name}</h3>
+                                </div>
+                                <span class="text-xs bg-stone-800 text-stone-300 px-2.5 py-1 rounded-lg font-medium">${formatAge(w.age)}</span>
+                            </div>
+                        </div>
+                    </div>
+                ` : `
+                    <div class="p-5 space-y-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="px-2.5 py-1 rounded-lg bg-stone-950 text-amber-300 text-xs font-semibold border border-amber-800/50">${w.type}</span>
+                            <div class="flex items-center space-x-1">
+                                <button onclick="openEditWhiskyModal('${w.id}')" class="p-1.5 rounded-lg bg-stone-950/80 text-stone-400 hover:text-amber-300 transition border border-stone-800" title="Redigera flaska">
+                                    <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                                <button onclick="deleteWhisky('${w.id}')" class="p-1.5 rounded-lg bg-stone-950/80 text-stone-400 hover:text-red-400 transition border border-stone-800" title="Radera flaska">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-start gap-2">
+                            <div>
+                                <p class="text-xs text-amber-500 font-medium uppercase tracking-wider">${w.distillery}</p>
+                                <h3 class="font-serif text-lg font-bold text-stone-100">${w.name}</h3>
+                            </div>
+                            <span class="text-xs bg-stone-800 text-stone-300 px-2.5 py-1 rounded-lg font-medium shrink-0">${formatAge(w.age)}</span>
+                        </div>
+                    </div>
+                `;
+
+                return `
+                    <div class="whisky-card ${isVisible ? 'flex' : 'hidden'} bg-stone-900/60 border border-stone-800 rounded-2xl overflow-hidden shadow-lg flex-col justify-between" data-search="${searchData}">
+                        ${topSection}
                         <div class="px-5 py-4 bg-stone-950/40 border-t border-stone-800/80 flex items-center justify-between">
                             <span class="text-xs text-stone-400">${wReviews.length} recensioner</span>
                             <div class="flex items-center space-x-1.5 text-amber-400 font-bold text-sm">
@@ -1430,6 +1488,7 @@
             }
         }
 
+        updateCatalogImageToggleUI();
         initSocietyLock();
     </script>
 </body>
