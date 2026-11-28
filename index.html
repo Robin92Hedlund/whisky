@@ -475,29 +475,29 @@
     </div>
 
     <!-- MODAL: TASTING RANKING / VOTE -->
-    <div id="vote-modal" class="fixed inset-0 z-50 bg-stone-950/80 backdrop-blur-sm hidden items-center justify-center p-4">
-        <div class="bg-stone-900 border border-amber-900/40 rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl relative max-h-[90vh] flex flex-col">
-            <button onclick="closeVoteModal()" class="absolute right-5 top-5 text-stone-400 hover:text-stone-100">
+    <div id="vote-modal" class="fixed inset-0 z-50 bg-stone-950/85 backdrop-blur-sm hidden items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-stone-900 border-t sm:border border-amber-900/40 rounded-t-3xl sm:rounded-3xl max-w-xl w-full p-4 sm:p-8 shadow-2xl relative max-h-[92dvh] sm:max-h-[90vh] flex flex-col">
+            <button onclick="closeVoteModal()" class="absolute right-4 top-4 sm:right-5 sm:top-5 p-2 rounded-xl text-stone-400 hover:text-stone-100 hover:bg-stone-800/70 transition" aria-label="Stäng">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
-            <h3 id="vote-modal-title" class="font-serif text-xl font-bold text-amber-100 mb-1">Rangordna kvällens flaskor</h3>
-            <p id="vote-modal-subtitle" class="text-stone-400 text-xs mb-4">Använd pilarna för att flytta din favorit högst upp (1:a plats).</p>
+            <h3 id="vote-modal-title" class="font-serif text-lg sm:text-xl font-bold text-amber-100 mb-1 pr-10">Rangordna kvällens flaskor</h3>
+            <p id="vote-modal-subtitle" class="text-stone-400 text-xs mb-3 sm:mb-4 leading-relaxed">Använd pilarna för att flytta din favorit högst upp (1:a plats).</p>
             
-            <form id="vote-form" onsubmit="handleVoteSubmit(event)" class="space-y-4 flex-grow overflow-hidden flex flex-col">
+            <form id="vote-form" onsubmit="handleVoteSubmit(event)" class="space-y-3 sm:space-y-4 flex-grow overflow-hidden flex flex-col">
                 <input type="hidden" id="v-tasting-id">
                 <input type="hidden" id="v-vote-id">
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-stone-400 mb-1.5">Ditt namn</label>
+                <div class="shrink-0">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-stone-400 mb-1">Ditt namn</label>
                     <input type="text" id="v-member" required placeholder="t.ex. Robin" class="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 sm:py-2 text-base sm:text-sm text-stone-100 focus:outline-none focus:border-amber-600">
                 </div>
                 
-                <div class="flex-grow overflow-y-auto space-y-3 pr-2 border-t border-b border-stone-800 py-3" id="vote-whiskies-container">
+                <div class="flex-grow overflow-y-auto space-y-3 pr-1 border-t border-b border-stone-800 py-3 overscroll-contain" id="vote-whiskies-container">
                     <!-- Dynamically populated list of connected whiskies -->
                 </div>
 
-                <div class="pt-2 flex justify-end space-x-3">
-                    <button type="button" onclick="closeVoteModal()" class="px-5 py-2.5 rounded-xl text-sm font-medium text-stone-400 hover:text-stone-200">Avbryt</button>
-                    <button type="submit" id="vote-submit-btn" class="bg-amber-600 hover:bg-amber-500 text-white font-medium px-6 py-2.5 rounded-xl text-sm shadow-lg shadow-amber-950/50 transition">Spara min ranking</button>
+                <div class="pt-1 flex items-center justify-end space-x-3 shrink-0">
+                    <button type="button" onclick="closeVoteModal()" class="px-4 py-3 sm:py-2.5 rounded-xl text-sm font-medium text-stone-400 hover:text-stone-200">Avbryt</button>
+                    <button type="submit" id="vote-submit-btn" class="flex-grow sm:flex-grow-0 bg-amber-600 hover:bg-amber-500 text-white font-semibold px-6 py-3 sm:py-2.5 rounded-xl text-sm shadow-lg shadow-amber-950/50 transition">Spara min ranking</button>
                 </div>
             </form>
         </div>
@@ -579,6 +579,15 @@
             'https://images.unsplash.com/photo-1563227812-0ea4c22e6cc8?auto=format&fit=crop&w=600&q=80',
             'https://images.unsplash.com/photo-1527281400683-1aae777175f8?auto=format&fit=crop&w=600&q=80'
         ];
+
+        function escapeHtml(str) {
+            return String(str || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
 
         function normalizeSearchText(str) {
             return String(str || '').toLowerCase().replace(/\s+/g, '');
@@ -838,6 +847,12 @@
             }
         };
 
+        window.autoResizeNoteField = function(el) {
+            if (!el) return;
+            el.style.height = 'auto';
+            el.style.height = `${Math.max(el.scrollHeight, 56)}px`;
+        };
+
         window.openVoteModal = function(tastingId, theme, existingVoteId = null) {
             const tastingObj = tastings.find(t => t.id === tastingId);
             const { isLocked } = getTastingLockStatus(tastingObj);
@@ -883,31 +898,32 @@
                 container.innerHTML = targetWhiskies.map((w, index) => {
                     const isFirst = index === 0;
                     const existingNote = existingVote && existingVote.notes && existingVote.notes[w.id] ? existingVote.notes[w.id] : '';
-                    const escapedNote = existingNote.replace(/"/g, '&quot;');
+                    const escapedNote = escapeHtml(existingNote);
                     return `
-                        <div class="vote-item transition-all duration-300 p-3 rounded-xl border ${isFirst ? 'bg-gradient-to-r from-amber-950/80 to-stone-900 border-amber-500/60 shadow-lg shadow-amber-950/40' : 'bg-stone-950/60 border-stone-800'}" data-whisky-id="${w.id}">
-                            <div class="flex items-center justify-between mb-2">
-                                <div class="flex items-center space-x-3">
-                                    <span class="vote-pos w-6 h-6 rounded-full ${isFirst ? 'bg-amber-500 text-stone-950 font-black shadow-md shadow-amber-500/50' : 'bg-amber-950 text-amber-400 font-bold'} text-xs flex items-center justify-center border border-amber-800/50">${index + 1}</span>
-                                    <div>
-                                        <p class="text-xs font-bold text-stone-200 flex items-center space-x-1.5">
-                                            <span>${w.name}</span>
-                                            <span class="crown-badge ${isFirst ? '' : 'hidden'} text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/40 font-semibold">👑 Kvällens kung</span>
+                        <div class="vote-item transition-all duration-300 p-3.5 sm:p-3 rounded-2xl border ${isFirst ? 'bg-gradient-to-r from-amber-950/80 to-stone-900 border-amber-500/60 shadow-lg shadow-amber-950/40' : 'bg-stone-950/60 border-stone-800'}" data-whisky-id="${w.id}">
+                            <div class="flex items-start sm:items-center justify-between gap-2 mb-2.5">
+                                <div class="flex items-start sm:items-center space-x-3 min-w-0">
+                                    <span class="vote-pos shrink-0 w-7 h-7 sm:w-6 sm:h-6 rounded-full ${isFirst ? 'bg-amber-500 text-stone-950 font-black shadow-md shadow-amber-500/50' : 'bg-amber-950 text-amber-400 font-bold'} text-xs flex items-center justify-center border border-amber-800/50 mt-0.5 sm:mt-0">${index + 1}</span>
+                                    <div class="min-w-0">
+                                        <p class="text-sm sm:text-xs font-bold text-stone-200 flex flex-wrap items-center gap-1.5 leading-snug">
+                                            <span class="break-words">${escapeHtml(w.name)}</span>
+                                            <span class="crown-badge ${isFirst ? '' : 'hidden'} text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/40 font-semibold whitespace-nowrap">👑 Kvällens kung</span>
                                         </p>
-                                        <p class="text-[10px] text-stone-400">${w.distillery} • ${w.type} (${formatAge(w.age)})</p>
+                                        <p class="text-[11px] sm:text-[10px] text-stone-400 mt-0.5">${escapeHtml(w.distillery)} • ${escapeHtml(w.type)} (${formatAge(w.age)})</p>
                                     </div>
                                 </div>
-                                <div class="flex items-center space-x-1">
-                                    <button type="button" onclick="moveVoteItem(this, -1)" class="vote-up-btn p-1.5 rounded-lg bg-stone-900 text-stone-300 hover:text-amber-300 hover:bg-stone-800 border border-stone-800 transition ${isFirst ? 'opacity-20 pointer-events-none' : ''}" title="Flytta upp">
+                                <div class="flex items-center space-x-1.5 shrink-0">
+                                    <button type="button" onclick="moveVoteItem(this, -1)" class="vote-up-btn min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-xl sm:rounded-lg bg-stone-900 text-stone-300 hover:text-amber-300 hover:bg-stone-800 active:scale-95 border border-stone-700/80 transition flex items-center justify-center ${isFirst ? 'opacity-20 pointer-events-none' : ''}" title="Flytta upp" aria-label="Flytta upp">
                                         <i data-lucide="chevron-up" class="w-4 h-4"></i>
                                     </button>
-                                    <button type="button" onclick="moveVoteItem(this, 1)" class="vote-down-btn p-1.5 rounded-lg bg-stone-900 text-stone-300 hover:text-amber-300 hover:bg-stone-800 border border-stone-800 transition" title="Flytta ner">
+                                    <button type="button" onclick="moveVoteItem(this, 1)" class="vote-down-btn min-w-[40px] min-h-[40px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-xl sm:rounded-lg bg-stone-900 text-stone-300 hover:text-amber-300 hover:bg-stone-800 active:scale-95 border border-stone-700/80 transition flex items-center justify-center" title="Flytta ner" aria-label="Flytta ner">
                                         <i data-lucide="chevron-down" class="w-4 h-4"></i>
                                     </button>
                                 </div>
                             </div>
-                            <div class="mt-2 pt-2 border-t border-stone-800/60">
-                                <input type="text" value="${escapedNote}" placeholder="✍️ Rasmus roman / anteckningar..." class="vote-notes w-full bg-stone-900 border border-stone-800 rounded-lg px-3 py-1.5 text-xs text-stone-200 placeholder-stone-500 focus:outline-none focus:border-amber-600">
+                            <div class="mt-2 pt-2.5 border-t border-stone-800/70">
+                                <label class="block text-[11px] text-stone-400 font-medium mb-1">Smakanteckningar</label>
+                                <textarea rows="2" oninput="autoResizeNoteField(this)" placeholder="✍️ Skriv doft, smak och eftersmak..." class="vote-notes w-full bg-stone-900/95 border border-stone-800 rounded-xl px-3.5 py-2.5 sm:py-2 text-base sm:text-xs leading-relaxed text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-600 resize-y min-h-[60px] sm:min-h-[44px]">${escapedNote}</textarea>
                             </div>
                         </div>
                     `;
@@ -918,6 +934,9 @@
 
             document.getElementById('vote-modal').classList.remove('hidden');
             document.getElementById('vote-modal').classList.add('flex');
+            requestAnimationFrame(() => {
+                document.querySelectorAll('.vote-notes').forEach(el => autoResizeNoteField(el));
+            });
         };
 
         window.moveVoteItem = function(btn, direction) {
@@ -945,12 +964,12 @@
                 const isLast = idx === items.length - 1;
 
                 if (isFirst) {
-                    idx_el.className = "vote-item transition-all duration-300 p-3 rounded-xl border bg-gradient-to-r from-amber-950/80 to-stone-900 border-amber-500/60 shadow-lg shadow-amber-950/40";
-                    if (posEl) posEl.className = "vote-pos w-6 h-6 rounded-full bg-amber-500 text-stone-950 font-black shadow-md shadow-amber-500/50 text-xs flex items-center justify-center border border-amber-800/50";
+                    idx_el.className = "vote-item transition-all duration-300 p-3.5 sm:p-3 rounded-2xl border bg-gradient-to-r from-amber-950/80 to-stone-900 border-amber-500/60 shadow-lg shadow-amber-950/40";
+                    if (posEl) posEl.className = "vote-pos shrink-0 w-7 h-7 sm:w-6 sm:h-6 rounded-full bg-amber-500 text-stone-950 font-black shadow-md shadow-amber-500/50 text-xs flex items-center justify-center border border-amber-800/50 mt-0.5 sm:mt-0";
                     if (crownBadge) crownBadge.classList.remove('hidden');
                 } else {
-                    idx_el.className = "vote-item transition-all duration-300 p-3 rounded-xl border bg-stone-950/60 border-stone-800";
-                    if (posEl) posEl.className = "vote-pos w-6 h-6 rounded-full bg-amber-950 text-amber-400 font-bold text-xs flex items-center justify-center border border-amber-800/50";
+                    idx_el.className = "vote-item transition-all duration-300 p-3.5 sm:p-3 rounded-2xl border bg-stone-950/60 border-stone-800";
+                    if (posEl) posEl.className = "vote-pos shrink-0 w-7 h-7 sm:w-6 sm:h-6 rounded-full bg-amber-950 text-amber-400 font-bold text-xs flex items-center justify-center border border-amber-800/50 mt-0.5 sm:mt-0";
                     if (crownBadge) crownBadge.classList.add('hidden');
                 }
 
@@ -1284,7 +1303,7 @@
                         updatedAt: Date.now()
                     });
                     closeVoteModal();
-                    alert("Din röstning och Rasmus-roman har uppdaterats!");
+                    alert("Din röstning och smakanteckning har uppdaterats!");
                 } else {
                     await addDoc(collection(db, "tastingVotes"), {
                         tastingId,
@@ -1294,7 +1313,7 @@
                         createdAt: Date.now()
                     });
                     closeVoteModal();
-                    alert("Din ranking och Rasmus-roman har sparats!");
+                    alert("Din ranking och smakanteckning har sparats!");
                 }
             } catch (err) {
                 console.error("Fel vid sparande av röst:", err);
@@ -1605,12 +1624,12 @@
                 let votersHtml = validVotes.length > 0 
                     ? `<div class="flex flex-wrap gap-1.5 mt-1">${validVotes.map(v => isLocked ? `
                         <span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-stone-900 text-stone-300 border border-stone-800 text-xs">
-                            <span>${v.member}</span>
+                            <span>${escapeHtml(v.member)}</span>
                             <i data-lucide="lock" class="w-3 h-3 text-stone-500"></i>
                         </span>
                     ` : `
-                        <button type="button" onclick="openVoteModal('${t.id}', '${safeTheme}', '${v.id}')" class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-stone-800/90 hover:bg-amber-950/80 text-stone-200 hover:text-amber-300 border border-stone-700 hover:border-amber-700/60 text-xs transition" title="Redigera ${v.member}s röstning">
-                            <span>${v.member}</span>
+                        <button type="button" onclick="openVoteModal('${t.id}', '${safeTheme}', '${v.id}')" class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-stone-800/90 hover:bg-amber-950/80 text-stone-200 hover:text-amber-300 border border-stone-700 hover:border-amber-700/60 text-xs transition" title="Redigera ${escapeHtml(v.member)}s röstning">
+                            <span>${escapeHtml(v.member)}</span>
                             <i data-lucide="edit-2" class="w-3 h-3 text-amber-400"></i>
                         </button>
                     `).join('')}</div>`
@@ -1621,18 +1640,38 @@
                     resultsHtml = `
                         <div class="space-y-1.5 mt-2">
                             <p class="text-[11px] uppercase tracking-wider text-amber-400 font-semibold">Slutresultat & totala poäng:</p>
-                            <div class="space-y-1">
+                            <div class="space-y-2">
                                 ${sortedWinnerEntries.map((entry, index) => {
                                     const whiskyObj = whiskies.find(w => w.id === entry.wId);
                                     const whiskyName = whiskyObj ? whiskyObj.name : 'Okänd flaska';
                                     const isFirst = index === 0;
+                                    const bottleNotes = votes
+                                        .filter(v => v.notes && v.notes[entry.wId] && String(v.notes[entry.wId]).trim())
+                                        .map(v => ({
+                                            member: v.member || 'Medlem',
+                                            text: String(v.notes[entry.wId]).trim()
+                                        }));
+                                    const bottleNotesHtml = bottleNotes.length > 0 ? `
+                                        <div class="mt-2 pt-2 border-t ${isFirst ? 'border-amber-500/30' : 'border-stone-800/80'} space-y-1.5">
+                                            ${bottleNotes.map(n => `
+                                                <div class="text-xs leading-relaxed text-stone-300 bg-stone-950/60 rounded-lg px-2.5 py-1.5 border border-stone-800/60 break-words">
+                                                    <span class="font-semibold text-amber-300">${escapeHtml(n.member)}:</span>
+                                                    <span class="italic text-stone-200 whitespace-pre-line"> ${escapeHtml(n.text)}</span>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    ` : '';
+
                                     return `
-                                        <div class="flex items-center justify-between p-2 rounded-lg ${isFirst ? 'bg-amber-950/50 border border-amber-500/50 text-amber-200' : 'bg-stone-950/40 border border-stone-800 text-stone-300'} text-xs">
-                                            <div class="flex items-center space-x-2">
-                                                <span class="font-bold ${isFirst ? 'text-amber-400' : 'text-stone-400'}">${index + 1}.</span>
-                                                <span>${isFirst ? '👑 ' : ''}<strong>${whiskyName}</strong></span>
+                                        <div class="p-2.5 rounded-xl ${isFirst ? 'bg-amber-950/50 border border-amber-500/50 text-amber-200' : 'bg-stone-950/40 border border-stone-800 text-stone-300'} text-xs">
+                                            <div class="flex items-center justify-between gap-2">
+                                                <div class="flex items-center space-x-2 min-w-0">
+                                                    <span class="font-bold shrink-0 ${isFirst ? 'text-amber-400' : 'text-stone-400'}">${index + 1}.</span>
+                                                    <span class="break-words">${isFirst ? '👑 ' : ''}<strong>${escapeHtml(whiskyName)}</strong></span>
+                                                </div>
+                                                <span class="font-mono font-bold text-amber-400 shrink-0">${entry.points} p</span>
                                             </div>
-                                            <span class="font-mono font-bold text-amber-400">${entry.points} p</span>
+                                            ${bottleNotesHtml}
                                         </div>
                                     `;
                                 }).join('')}
@@ -1643,7 +1682,7 @@
 
                 const connectedBadges = connectedIds.length > 0 ? connectedIds.map(id => {
                     const w = whiskies.find(item => item.id === id);
-                    return w ? `<span class="text-[10px] px-2 py-0.5 rounded-md bg-stone-800 text-amber-200 border border-stone-700">${w.name}</span>` : '';
+                    return w ? `<span class="text-[10px] px-2 py-0.5 rounded-md bg-stone-800 text-amber-200 border border-stone-700">${escapeHtml(w.name)}</span>` : '';
                 }).join('') : `<span class="text-[10px] text-stone-500 italic">Inga specifika flaskor kopplade (visar alla vid röstning)</span>`;
 
                 const statusBadge = isLocked
@@ -1680,18 +1719,18 @@
                     `;
 
                 return `
-                    <div class="bg-stone-900/60 border ${isLocked ? 'border-emerald-900/50' : 'border-stone-800'} rounded-2xl p-6 shadow-lg space-y-4 relative">
-                        <div class="absolute top-6 right-6 flex items-center space-x-2">
+                    <div class="bg-stone-900/60 border ${isLocked ? 'border-emerald-900/50' : 'border-stone-800'} rounded-2xl p-5 sm:p-6 shadow-lg space-y-4 relative">
+                        <div class="absolute top-5 right-5 sm:top-6 sm:right-6 flex items-center space-x-2">
                             ${topActionsHtml}
                         </div>
                         <div class="flex flex-wrap items-center gap-2 pr-16">
                             <span class="text-xs px-3 py-1 rounded-full bg-amber-950 text-amber-300 border border-amber-800/50 font-medium">${t.date || 'Tid ej satt'}</span>
                             ${statusBadge}
-                            <span class="text-xs text-stone-400 flex items-center space-x-1"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i><span>${t.host}</span></span>
+                            <span class="text-xs text-stone-400 flex items-center space-x-1"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i><span>${escapeHtml(t.host)}</span></span>
                         </div>
                         <div>
-                            <h3 class="font-serif text-xl font-bold text-stone-100">${t.theme}</h3>
-                            <p class="text-stone-300 text-sm leading-relaxed mt-1">${t.notes || 'Inga anteckningar angivna.'}</p>
+                            <h3 class="font-serif text-xl font-bold text-stone-100">${escapeHtml(t.theme)}</h3>
+                            <p class="text-stone-300 text-sm leading-relaxed mt-1">${escapeHtml(t.notes) || 'Inga anteckningar angivna.'}</p>
                         </div>
                         
                         <div class="space-y-1">
