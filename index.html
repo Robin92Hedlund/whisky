@@ -468,11 +468,12 @@
             <button onclick="closeVoteModal()" class="absolute right-5 top-5 text-stone-400 hover:text-stone-100">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
-            <h3 class="font-serif text-xl font-bold text-amber-100 mb-1">Rangordna kvällens flaskor</h3>
+            <h3 id="vote-modal-title" class="font-serif text-xl font-bold text-amber-100 mb-1">Rangordna kvällens flaskor</h3>
             <p id="vote-modal-subtitle" class="text-stone-400 text-xs mb-4">Använd pilarna för att flytta din favorit högst upp (1:a plats).</p>
             
             <form id="vote-form" onsubmit="handleVoteSubmit(event)" class="space-y-4 flex-grow overflow-hidden flex flex-col">
                 <input type="hidden" id="v-tasting-id">
+                <input type="hidden" id="v-vote-id">
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider text-stone-400 mb-1.5">Ditt namn</label>
                     <input type="text" id="v-member" required placeholder="t.ex. Robin" class="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 sm:py-2 text-base sm:text-sm text-stone-100 focus:outline-none focus:border-amber-600">
@@ -484,7 +485,7 @@
 
                 <div class="pt-2 flex justify-end space-x-3">
                     <button type="button" onclick="closeVoteModal()" class="px-5 py-2.5 rounded-xl text-sm font-medium text-stone-400 hover:text-stone-200">Avbryt</button>
-                    <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white font-medium px-6 py-2.5 rounded-xl text-sm shadow-lg shadow-amber-950/50 transition">Spara min ranking</button>
+                    <button type="submit" id="vote-submit-btn" class="bg-amber-600 hover:bg-amber-500 text-white font-medium px-6 py-2.5 rounded-xl text-sm shadow-lg shadow-amber-950/50 transition">Spara min ranking</button>
                 </div>
             </form>
         </div>
@@ -751,14 +752,37 @@
             document.getElementById('tasting-form').reset();
         };
 
-        window.openVoteModal = function(tastingId, theme) {
+        window.openVoteModal = function(tastingId, theme, existingVoteId = null) {
             document.getElementById('v-tasting-id').value = tastingId;
-            document.getElementById('vote-modal-subtitle').textContent = `Rangordna flaskor för: "${theme}" (Högst upp = 1:a plats 👑)`;
+            document.getElementById('v-vote-id').value = existingVoteId || '';
+
+            const existingVote = existingVoteId ? tastingVotes.find(v => v.id === existingVoteId) : null;
+            const isEditing = Boolean(existingVote);
+
+            document.getElementById('vote-modal-title').textContent = isEditing ? 'Redigera röstning' : 'Rangordna kvällens flaskor';
+            document.getElementById('vote-submit-btn').textContent = isEditing ? 'Uppdatera min ranking' : 'Spara min ranking';
+            document.getElementById('vote-modal-subtitle').textContent = `${isEditing ? 'Uppdatera ordning och anteckningar' : 'Rangordna flaskor'} för: "${theme}" (Högst upp = 1:a plats 👑)`;
+            document.getElementById('v-member').value = existingVote ? (existingVote.member || '') : '';
             
             const tastingObj = tastings.find(t => t.id === tastingId);
             const connectedIds = tastingObj && tastingObj.connectedWhiskyIds ? tastingObj.connectedWhiskyIds : [];
             
-            const targetWhiskies = connectedIds.length > 0 ? whiskies.filter(w => connectedIds.includes(w.id)) : whiskies;
+            let targetWhiskies = connectedIds.length > 0 ? whiskies.filter(w => connectedIds.includes(w.id)) : whiskies;
+
+            if (existingVote && existingVote.rankings) {
+                const savedIds = Object.keys(existingVote.rankings);
+                savedIds.forEach(id => {
+                    if (!targetWhiskies.some(w => w.id === id)) {
+                        const found = whiskies.find(w => w.id === id);
+                        if (found) targetWhiskies.push(found);
+                    }
+                });
+                targetWhiskies = [...targetWhiskies].sort((a, b) => {
+                    const rankA = existingVote.rankings[a.id] ?? Number.MAX_SAFE_INTEGER;
+                    const rankB = existingVote.rankings[b.id] ?? Number.MAX_SAFE_INTEGER;
+                    return Number(rankA) - Number(rankB);
+                });
+            }
 
             const container = document.getElementById('vote-whiskies-container');
             if (targetWhiskies.length === 0) {
@@ -766,6 +790,8 @@
             } else {
                 container.innerHTML = targetWhiskies.map((w, index) => {
                     const isFirst = index === 0;
+                    const existingNote = existingVote && existingVote.notes && existingVote.notes[w.id] ? existingVote.notes[w.id] : '';
+                    const escapedNote = existingNote.replace(/"/g, '&quot;');
                     return `
                         <div class="vote-item transition-all duration-300 p-3 rounded-xl border ${isFirst ? 'bg-gradient-to-r from-amber-950/80 to-stone-900 border-amber-500/60 shadow-lg shadow-amber-950/40' : 'bg-stone-950/60 border-stone-800'}" data-whisky-id="${w.id}">
                             <div class="flex items-center justify-between mb-2">
@@ -789,7 +815,7 @@
                                 </div>
                             </div>
                             <div class="mt-2 pt-2 border-t border-stone-800/60">
-                                <input type="text" placeholder="✍️ Rasmus roman / anteckningar..." class="vote-notes w-full bg-stone-900 border border-stone-800 rounded-lg px-3 py-1.5 text-xs text-stone-200 placeholder-stone-500 focus:outline-none focus:border-amber-600">
+                                <input type="text" value="${escapedNote}" placeholder="✍️ Rasmus roman / anteckningar..." class="vote-notes w-full bg-stone-900 border border-stone-800 rounded-lg px-3 py-1.5 text-xs text-stone-200 placeholder-stone-500 focus:outline-none focus:border-amber-600">
                             </div>
                         </div>
                     `;
@@ -856,6 +882,7 @@
         window.closeVoteModal = function() {
             document.getElementById('vote-modal').classList.add('hidden');
             document.getElementById('vote-modal').classList.remove('flex');
+            document.getElementById('v-vote-id').value = '';
             document.getElementById('vote-form').reset();
         };
 
@@ -1056,6 +1083,7 @@
         window.handleVoteSubmit = async function(e) {
             e.preventDefault();
             const tastingId = document.getElementById('v-tasting-id').value;
+            const editingVoteId = document.getElementById('v-vote-id').value;
             const member = document.getElementById('v-member').value.trim();
 
             const voteItems = document.querySelectorAll('.vote-item');
@@ -1076,15 +1104,37 @@
             }
 
             try {
-                await addDoc(collection(db, "tastingVotes"), {
-                    tastingId,
-                    member,
-                    rankings,
-                    notes,
-                    createdAt: Date.now()
-                });
-                closeVoteModal();
-                alert("Din ranking och Rasmus-roman har sparats!");
+                let targetVoteId = editingVoteId;
+                if (!targetVoteId) {
+                    const existingByMember = tastingVotes.find(
+                        v => v.tastingId === tastingId && v.member && v.member.trim().toLowerCase() === member.toLowerCase()
+                    );
+                    if (existingByMember) {
+                        targetVoteId = existingByMember.id;
+                    }
+                }
+
+                if (targetVoteId) {
+                    await updateDoc(doc(db, "tastingVotes", targetVoteId), {
+                        tastingId,
+                        member,
+                        rankings,
+                        notes,
+                        updatedAt: Date.now()
+                    });
+                    closeVoteModal();
+                    alert("Din röstning och Rasmus-roman har uppdaterats!");
+                } else {
+                    await addDoc(collection(db, "tastingVotes"), {
+                        tastingId,
+                        member,
+                        rankings,
+                        notes,
+                        createdAt: Date.now()
+                    });
+                    closeVoteModal();
+                    alert("Din ranking och Rasmus-roman har sparats!");
+                }
             } catch (err) {
                 console.error("Fel vid sparande av röst:", err);
                 alert("Kunde inte spara röst.");
@@ -1321,6 +1371,7 @@
             container.innerHTML = tastings.map(t => {
                 const votes = tastingVotes.filter(v => v.tastingId === t.id);
                 const connectedIds = t.connectedWhiskyIds || [];
+                const safeTheme = (t.theme || '').replace(/'/g, "\\'");
 
                 const whiskyPoints = {};
                 votes.forEach(v => {
@@ -1338,9 +1389,14 @@
                     return { wId, points };
                 }).sort((a, b) => b.points - a.points);
 
-                const voterNames = votes.map(v => v.member).filter(Boolean);
-                let votersHtml = voterNames.length > 0 
-                    ? `<span class="text-stone-300">${voterNames.join(', ')}</span>`
+                const validVotes = votes.filter(v => v.member);
+                let votersHtml = validVotes.length > 0 
+                    ? `<div class="flex flex-wrap gap-1.5 mt-1">${validVotes.map(v => `
+                        <button type="button" onclick="openVoteModal('${t.id}', '${safeTheme}', '${v.id}')" class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-stone-800/90 hover:bg-amber-950/80 text-stone-200 hover:text-amber-300 border border-stone-700 hover:border-amber-700/60 text-xs transition" title="Redigera ${v.member}s röstning">
+                            <span>${v.member}</span>
+                            <i data-lucide="edit-2" class="w-3 h-3 text-amber-400"></i>
+                        </button>
+                    `).join('')}</div>`
                     : `<span class="text-stone-500 italic">Inga röster inlagda ännu</span>`;
 
                 let resultsHtml = `<span class="text-stone-500 italic text-xs">Inga resultat att visa</span>`;
@@ -1401,12 +1457,12 @@
 
                         <div class="pt-3 border-t border-stone-800/80 space-y-3">
                             <div class="text-xs space-y-0.5">
-                                <span class="text-stone-400 font-semibold">Vilka har röstat (${voterNames.length}):</span>
+                                <span class="text-stone-400 font-semibold">Vilka har röstat (${validVotes.length}) — klicka för att redigera:</span>
                                 <div>${votersHtml}</div>
                             </div>
                             ${resultsHtml}
                             <div class="pt-2 flex justify-end">
-                                <button onclick="openVoteModal('${t.id}', '${t.theme.replace(/'/g, "\\'")}')" class="bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800/50 font-medium px-4 py-2 rounded-xl text-xs transition flex items-center justify-center space-x-1.5">
+                                <button onclick="openVoteModal('${t.id}', '${safeTheme}')" class="bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800/50 font-medium px-4 py-2 rounded-xl text-xs transition flex items-center justify-center space-x-1.5">
                                     <i data-lucide="award" class="w-3.5 h-3.5"></i>
                                     <span>Rösta / Ranka</span>
                                 </button>
