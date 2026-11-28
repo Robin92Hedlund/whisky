@@ -31,7 +31,7 @@
                     },
                     fontFamily: {
                         serif: ['"Playfair Display"', 'serif'],
-                        sans: ['"Plus Jakarta+Sans"', 'sans-serif'],
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
                     }
                 }
             }
@@ -106,7 +106,23 @@
     </header>
 
     <!-- Main Content Container -->
-    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+
+        <!-- PERMANENT SEARCH BAR AT TOP OF START PAGE -->
+        <div class="bg-stone-900/80 backdrop-blur border border-amber-900/40 rounded-2xl p-3 sm:p-4 shadow-xl">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div class="relative flex-grow">
+                    <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-amber-400"></i>
+                    <input type="text" id="whisky-search" oninput="handleGlobalWhiskySearch(this.value)" placeholder="Sök whisky, destilleri eller typ (t.ex. High Coast eller highcoast)..." class="w-full bg-stone-950 border border-stone-800 rounded-xl pl-10 pr-10 py-3 text-base sm:text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-600 transition">
+                    <button type="button" id="whisky-search-clear" onclick="clearGlobalWhiskySearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-200 p-1 rounded-lg" title="Rensa sökning">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <div id="whisky-search-status" class="hidden sm:flex items-center justify-between sm:justify-end gap-2 text-xs text-stone-400 shrink-0 px-1">
+                    <span id="whisky-search-count"></span>
+                </div>
+            </div>
+        </div>
 
         <!-- TAB: OVERVIEW -->
         <section id="tab-overview" class="space-y-8">
@@ -244,10 +260,6 @@
                     <p class="text-stone-400 text-sm">Alla flaskor som har registrerats i sällskapet samt provningsresultat.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-3">
-                    <div class="relative flex-grow sm:flex-grow-0">
-                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-500"></i>
-                        <input type="text" id="whisky-search" oninput="filterWhiskies(this.value)" placeholder="Sök whisky eller destilleri..." class="w-full sm:w-64 bg-stone-900 border border-stone-800 rounded-xl pl-9 pr-4 py-2.5 sm:py-2 text-base sm:text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-600 transition">
-                    </div>
                     <button type="button" id="toggle-images-btn" onclick="toggleCatalogImages()" aria-pressed="true" class="bg-stone-800 hover:bg-stone-700 text-amber-200 border border-amber-700/50 font-medium px-4 py-2 rounded-xl text-sm transition flex items-center space-x-2 whitespace-nowrap shadow-lg">
                         <i id="toggle-images-icon" data-lucide="image" class="w-4 h-4"></i>
                         <span id="toggle-images-label">Bilder: På</span>
@@ -556,6 +568,7 @@
         let tastings = [];
         let reviews = [];
         let tastingVotes = [];
+        let activeTab = 'overview';
         let showCatalogImages = localStorage.getItem(SHOW_CATALOG_IMAGES_KEY) !== "false";
 
         // Standardbild: Ett ekfat i en källarmiljö
@@ -566,6 +579,10 @@
             'https://images.unsplash.com/photo-1563227812-0ea4c22e6cc8?auto=format&fit=crop&w=600&q=80',
             'https://images.unsplash.com/photo-1527281400683-1aae777175f8?auto=format&fit=crop&w=600&q=80'
         ];
+
+        function normalizeSearchText(str) {
+            return String(str || '').toLowerCase().replace(/\s+/g, '');
+        }
 
         function isAutoLockedByTime(tasting, now = new Date()) {
             if (!tasting || !tasting.date) return false;
@@ -769,7 +786,7 @@
 
                 container.innerHTML = sortedWhiskies.map(w => {
                     const isChecked = selectedIds.includes(w.id) ? 'checked' : '';
-                    const searchData = `${w.name} ${w.distillery || ''} ${w.type || ''}`.toLowerCase();
+                    const searchData = normalizeSearchText(`${w.name}${w.distillery || ''}${w.type || ''}`);
                     return `
                         <label class="tasting-bottle-item flex items-center space-x-2 text-xs text-stone-300 hover:bg-stone-900 p-1.5 rounded-lg cursor-pointer" data-search="${searchData}">
                             <input type="checkbox" value="${w.id}" ${isChecked} class="tasting-whisky-cb accent-amber-600 rounded">
@@ -781,11 +798,11 @@
         }
 
         window.filterTastingBottles = function(query) {
-            const q = query.toLowerCase().trim();
+            const q = normalizeSearchText(query);
             const items = document.querySelectorAll('.tasting-bottle-item');
             items.forEach(item => {
                 const text = item.dataset.search || '';
-                if (text.includes(q)) {
+                if (!q || text.includes(q)) {
                     item.classList.remove('hidden');
                     item.classList.add('flex');
                 } else {
@@ -972,13 +989,18 @@
             document.getElementById('review-modal').classList.remove('flex');
         };
 
-        window.switchTab = function(tabId) {
+        window.switchTab = function(tabId, skipScroll = false) {
+            activeTab = tabId;
             ['overview', 'whiskies', 'tastings', 'reviews', 'rankings'].forEach(t => {
                 const el = document.getElementById(`tab-${t}`);
                 if (el) el.classList.add('hidden');
                 const navBtn = document.getElementById(`nav-${t}`);
                 if (navBtn) {
                     navBtn.className = "px-4 py-2 rounded-lg text-sm font-medium transition-all text-stone-300 hover:text-amber-300 hover:bg-stone-800";
+                }
+                const mobNavBtn = document.getElementById(`mob-nav-${t}`);
+                if (mobNavBtn) {
+                    mobNavBtn.className = "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap text-stone-300 hover:bg-stone-800";
                 }
             });
             const target = document.getElementById(`tab-${tabId}`);
@@ -987,34 +1009,90 @@
             if (activeNav) {
                 activeNav.className = "px-4 py-2 rounded-lg text-sm font-medium transition-all bg-amber-950/80 text-amber-300 border border-amber-800/50";
             }
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            const activeMobNav = document.getElementById(`mob-nav-${tabId}`);
+            if (activeMobNav) {
+                activeMobNav.className = "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap bg-amber-950 text-amber-300 border border-amber-800/50";
+            }
+            if (!skipScroll) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
         };
 
+        function updateSearchUI(normalizedQuery, visibleCount) {
+            const clearBtn = document.getElementById('whisky-search-clear');
+            const statusWrap = document.getElementById('whisky-search-status');
+            const countEl = document.getElementById('whisky-search-count');
+
+            if (clearBtn) {
+                if (normalizedQuery.length > 0) {
+                    clearBtn.classList.remove('hidden');
+                } else {
+                    clearBtn.classList.add('hidden');
+                }
+            }
+
+            if (statusWrap && countEl) {
+                if (normalizedQuery.length > 0) {
+                    statusWrap.classList.remove('hidden');
+                    statusWrap.classList.add('flex');
+                    countEl.textContent = `${visibleCount} av ${whiskies.length} träffar`;
+                } else {
+                    statusWrap.classList.add('hidden');
+                    statusWrap.classList.remove('flex');
+                    countEl.textContent = '';
+                }
+            }
+        }
+
         window.filterWhiskies = function(query) {
-            const q = query.toLowerCase().trim();
+            const q = normalizeSearchText(query);
             const cards = document.querySelectorAll('.whisky-card');
+            let visibleCount = 0;
             cards.forEach(card => {
                 const text = card.dataset.search || '';
-                if (text.includes(q)) {
+                if (!q || text.includes(q)) {
                     card.classList.remove('hidden');
                     card.classList.add('flex');
+                    visibleCount++;
                 } else {
                     card.classList.remove('flex');
                     card.classList.add('hidden');
                 }
             });
+            updateSearchUI(q, visibleCount);
+        };
+
+        window.handleGlobalWhiskySearch = function(query) {
+            const q = normalizeSearchText(query);
+            if (q.length > 0 && activeTab !== 'whiskies') {
+                switchTab('whiskies', true);
+            }
+            filterWhiskies(query);
+        };
+
+        window.clearGlobalWhiskySearch = function() {
+            const input = document.getElementById('whisky-search');
+            if (input) {
+                input.value = '';
+                filterWhiskies('');
+                input.focus();
+            }
         };
 
         window.checkExistingWhisky = function(val) {
             const warningEl = document.getElementById('whisky-match-warning');
             const editingId = document.getElementById('w-id').value;
-            if (!val || val.trim().length < 2) {
+            const query = normalizeSearchText(val);
+            if (!query || query.length < 2) {
                 warningEl.classList.add('hidden');
                 warningEl.innerHTML = '';
                 return;
             }
-            const query = val.toLowerCase().trim();
-            const matches = whiskies.filter(w => w.id !== editingId && (w.name.toLowerCase().includes(query) || (w.distillery && w.distillery.toLowerCase().includes(query))));
+            const matches = whiskies.filter(w => {
+                if (w.id === editingId) return false;
+                const hay = normalizeSearchText(`${w.name}${w.distillery || ''}`);
+                return hay.includes(query);
+            });
 
             if (matches.length > 0) {
                 warningEl.classList.remove('hidden');
@@ -1065,7 +1143,7 @@
             const name = document.getElementById('w-name').value.trim();
             
             if (!id) {
-                const exists = whiskies.some(w => w.name.toLowerCase() === name.toLowerCase());
+                const exists = whiskies.some(w => normalizeSearchText(w.name) === normalizeSearchText(name));
                 if (exists) {
                     if (!confirm(`"${name}" verkar redan finnas i arkivet. Vill du spara en till ändå?`)) {
                         return;
@@ -1109,7 +1187,7 @@
                     if (!item.name) continue;
                     const name = item.name.trim();
 
-                    const exists = whiskies.some(w => w.name.toLowerCase() === name.toLowerCase());
+                    const exists = whiskies.some(w => normalizeSearchText(w.name) === normalizeSearchText(name));
                     if (exists) {
                         skipped++;
                         continue;
@@ -1394,19 +1472,22 @@
 
         function renderWhiskies() {
             const grid = document.getElementById('whiskies-grid');
+            const searchInput = document.getElementById('whisky-search');
+            const currentQuery = searchInput ? normalizeSearchText(searchInput.value) : '';
+
             if (whiskies.length === 0) {
                 grid.innerHTML = `<div class="col-span-full py-12 text-center text-stone-500 text-sm">Inga whiskysorter hittades. Lägg till er första flaska!</div>`;
+                updateSearchUI(currentQuery, 0);
                 return;
             }
 
-            const searchInput = document.getElementById('whisky-search');
-            const currentQuery = searchInput ? searchInput.value.toLowerCase().trim() : '';
-
+            let visibleCount = 0;
             grid.innerHTML = whiskies.map(w => {
                 const wReviews = reviews.filter(r => r.whiskyId === w.id);
                 const avg = wReviews.length > 0 ? (wReviews.reduce((sum, r) => sum + r.score, 0) / wReviews.length).toFixed(1) : '–';
-                const searchData = `${w.name} ${w.distillery || ''} ${w.type || ''}`.toLowerCase();
+                const searchData = normalizeSearchText(`${w.name}${w.distillery || ''}${w.type || ''}`);
                 const isVisible = !currentQuery || searchData.includes(currentQuery);
+                if (isVisible) visibleCount++;
                 const imageUrl = getBottleImage(w.imageUrl);
                 const tastingHistory = getWhiskyTastingHistory(w.id);
 
@@ -1503,6 +1584,7 @@
                     </div>
                 `;
             }).join('');
+            updateSearchUI(currentQuery, visibleCount);
             lucide.createIcons();
         }
 
